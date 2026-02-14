@@ -24,6 +24,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [domainError, setDomainError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     try {
@@ -32,17 +33,57 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
     } catch (error: any) {
       console.error("Login error", error);
       if (error.code === 'auth/unauthorized-domain') {
-         const currentDomain = window.location.hostname;
-         alert(
-           `Configuration Error: Domain Unauthorized\n\n` +
-           `The domain "${currentDomain}" is not whitelisted for this Firebase project.\n\n` +
-           `Please add it in Firebase Console > Authentication > Settings > Authorized Domains, or configure your own API keys via the footer link.`
-         );
+         setDomainError(window.location.hostname);
       } else if (error.code !== 'auth/popup-closed-by-user') {
-         alert(`Login failed: ${error.message}`);
+         setError(`Login failed: ${error.message}`);
       }
     }
   };
+
+  // If we hit the domain error during login attempt
+  if (domainError) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div className="bg-red-50 p-6 border-b border-red-100 flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Login Blocked</h3>
+              <p className="text-sm text-red-800 mt-1">Domain not authorized.</p>
+            </div>
+          </div>
+          
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-600">
+              Go to Firebase Console &gt; Authentication. You are on the <strong>Users</strong> tab. Click the <strong>Settings</strong> tab next to it.
+            </p>
+            <p className="text-sm text-gray-600">
+              Then click <strong>Authorized Domains</strong> &gt; <strong>Add Domain</strong> and paste:
+            </p>
+            <div className="flex items-center space-x-2">
+              <code className="flex-1 block w-full p-2 bg-gray-100 border border-gray-300 rounded text-xs font-mono text-gray-800 break-all">
+                {domainError}
+              </code>
+              <Button 
+                variant="secondary"
+                className="text-xs py-1"
+                onClick={() => navigator.clipboard.writeText(domainError)}
+              >
+                Copy
+              </Button>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button onClick={() => setDomainError(null)}>Try Again</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If not logged in, we show a prompt
   if (!user) {
@@ -58,6 +99,13 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
            <p className="text-sm text-gray-500 mb-6">
              You must be signed in to register for sessions.
            </p>
+           
+           {error && (
+             <div className="mb-4 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">
+               {error}
+             </div>
+           )}
+
            <Button 
              onClick={handleLogin}
              className="w-full flex justify-center items-center gap-2"

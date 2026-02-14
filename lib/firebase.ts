@@ -35,42 +35,48 @@ const envConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let finalConfig;
+let finalConfig: any = null;
 
-if (storedConfig && storedConfig.apiKey) {
-  finalConfig = storedConfig;
-  isConfigured = true;
+if (storedConfig && storedConfig.apiKey && storedConfig.projectId) {
+  finalConfig = { ...storedConfig };
 } else if (envConfig.apiKey && envConfig.apiKey !== "undefined" && envConfig.apiKey !== "demo-key") {
-  finalConfig = envConfig;
-  isConfigured = true;
-} else {
-  // No valid configuration found. 
-  // We do NOT provide a fallback here because we want to force the user 
-  // to input their own keys via SetupScreen.
-  finalConfig = {
-    apiKey: "demo-key",
-    authDomain: "demo.firebaseapp.com",
-    projectId: "demo-project",
-  };
-  isConfigured = false;
+  finalConfig = { ...envConfig };
 }
 
-try {
-  // Only initialize if we have a potentially valid config (isConfigured is checked in App.tsx)
-  // But we initialize anyway to prevent crashes if code tries to access exports, 
-  // though they won't work without real keys.
-  if (!getApps().length) {
-    app = initializeApp(finalConfig);
-  } else {
-    app = getApps()[0];
+// Validation: Ensure we don't try to initialize with empty objects
+if (finalConfig) {
+  // Auto-populate authDomain if missing but projectId exists
+  if (finalConfig.projectId && !finalConfig.authDomain) {
+    finalConfig.authDomain = `${finalConfig.projectId}.firebaseapp.com`;
   }
   
-  db = getFirestore(app);
-  auth = getAuth(app);
-  functions = getFunctions(app);
-  
-} catch (error) {
-  console.error("Firebase initialization failed.", error);
+  // Basic validation check
+  if (!finalConfig.apiKey || !finalConfig.projectId) {
+    console.warn("Invalid config detected", finalConfig);
+    finalConfig = null;
+  }
+}
+
+if (finalConfig) {
+  try {
+    if (!getApps().length) {
+      app = initializeApp(finalConfig);
+    } else {
+      app = getApps()[0];
+    }
+    
+    db = getFirestore(app);
+    auth = getAuth(app);
+    functions = getFunctions(app);
+    isConfigured = true;
+    
+  } catch (error) {
+    console.error("Firebase initialization failed.", error);
+    // Reset config if it crashes initialization to prevent loops
+    isConfigured = false;
+  }
+} else {
+  // Fallback for types, but isConfigured remains false
   isConfigured = false;
 }
 

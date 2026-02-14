@@ -66,15 +66,17 @@ export default function App() {
   };
 
   const handleLogin = async () => {
+    setAuthDomainError(null); // Clear previous error before trying
     try {
       await loginWithGoogle();
     } catch (error: any) {
-      console.error("Login failed", error);
       if (error.code === 'auth/unauthorized-domain') {
+        console.warn("Caught unauthorized-domain error, showing help modal.");
         setAuthDomainError(window.location.hostname);
       } else if (error.code === 'auth/popup-closed-by-user') {
         // User closed popup, no error needed
       } else {
+        console.error("Login failed", error);
         alert(`Sign in failed: ${error.message}`);
       }
     }
@@ -152,6 +154,9 @@ export default function App() {
       </div>
     );
   };
+
+  const isVercelPreview = authDomainError?.includes('vercel.app') && authDomainError !== 'levin-center-signup.vercel.app';
+  const isLocalIp = authDomainError === '127.0.0.1';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -252,47 +257,74 @@ export default function App() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Login Blocked by Security</h3>
-                <p className="text-sm text-red-800 mt-1">Firebase does not recognize this website domain.</p>
+                <h3 className="text-xl font-bold text-gray-900">Security Check</h3>
+                <p className="text-sm text-red-800 mt-1">Authorized Domain Mismatch</p>
               </div>
             </div>
             
             <div className="p-6 space-y-6">
+              {isLocalIp && (
+                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-2">
+                   <p className="text-sm text-blue-800 font-bold mb-1">Are you developing locally?</p>
+                   <p className="text-sm text-blue-700 mb-3">
+                     Firebase authorizes <code>localhost</code> by default, but not <code>127.0.0.1</code>.
+                   </p>
+                   <Button 
+                     onClick={() => window.location.replace(window.location.href.replace('127.0.0.1', 'localhost'))}
+                     className="w-full"
+                   >
+                     Switch to localhost
+                   </Button>
+                 </div>
+              )}
+
+              {isVercelPreview && (
+                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                   <p className="text-sm text-yellow-800 font-bold mb-1">⚠️ You are on a Vercel Preview</p>
+                   <p className="text-sm text-yellow-800">
+                     Vercel creates a unique URL for every update (e.g. <code>-git-main</code>). 
+                     You must add <strong>this specific URL</strong> to Firebase, not just the main one.
+                   </p>
+                </div>
+              )}
+
               <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">1. Copy this address:</p>
-                <div className="mt-2 flex items-center space-x-2">
-                  <code className="flex-1 block w-full p-3 bg-gray-100 border border-gray-300 rounded text-sm font-mono text-gray-800 break-all">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Copy this exact Domain:</p>
+                <div className="mt-1 flex items-center space-x-2">
+                  <code className="flex-1 block w-full p-3 bg-red-50 border border-red-200 rounded text-sm font-mono text-red-800 break-all font-bold">
                     {authDomainError}
                   </code>
                   <Button 
-                    variant="secondary"
-                    onClick={() => {
-                      navigator.clipboard.writeText(authDomainError);
-                      alert("Copied to clipboard!");
-                    }}
+                     variant="secondary"
+                     onClick={() => navigator.clipboard.writeText(authDomainError)}
                   >
                     Copy
                   </Button>
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">2. Add it to Firebase:</p>
-                <ol className="mt-2 list-decimal list-inside space-y-2 text-gray-700 text-sm">
-                  <li>Go to <a href="https://console.firebase.google.com/" target="_blank" className="text-[#8C1515] underline font-bold">Firebase Console</a>.</li>
-                  <li>Click <strong>Authentication</strong> &gt; <strong>Settings</strong> tab.</li>
-                  <li>Click <strong>Authorized Domains</strong>.</li>
-                  <li>Click <strong>Add Domain</strong> and paste the address above.</li>
-                </ol>
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200 space-y-3">
+                 <h4 className="font-semibold text-gray-900 text-sm">Action Steps:</h4>
+                 <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+                    <li>Go to Firebase Console &gt; Authentication &gt; Settings &gt; Authorized Domains.</li>
+                    <li>Click <strong>Add Domain</strong> and paste the domain above.</li>
+                    <li><strong>Wait 5 minutes</strong> for the change to propagate worldwide.</li>
+                 </ol>
               </div>
 
-              <div className="bg-blue-50 p-3 rounded text-sm text-blue-800">
-                <strong>Why?</strong> This prevents strangers from stealing your API keys and using them on their own websites.
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Button onClick={() => setAuthDomainError(null)}>
-                  I added it, try again
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button 
+                   variant="secondary"
+                   className="flex-1"
+                   onClick={() => window.location.reload()}
+                >
+                  Refresh Page
+                </Button>
+                <Button 
+                   className="flex-1"
+                   onClick={() => handleLogin()}
+                >
+                  I Added It, Try Again
                 </Button>
               </div>
             </div>
