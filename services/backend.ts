@@ -11,7 +11,14 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 import { httpsCallable, HttpsCallableResult } from "firebase/functions";
-import { signInWithCustomToken, signOut, onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { 
+  signInWithCustomToken, 
+  signOut, 
+  onAuthStateChanged, 
+  type User, 
+  GoogleAuthProvider, 
+  signInWithPopup 
+} from "firebase/auth";
 import { db, functions, auth } from "../lib/firebase";
 import { Session, SignupPayload, Signup } from "../types";
 
@@ -53,8 +60,11 @@ export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
     await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error("Google login failed", error);
+  } catch (error: any) {
+    // Only log unexpected errors. Domain errors are handled by UI instructions.
+    if (error?.code !== 'auth/unauthorized-domain' && error?.code !== 'auth/popup-closed-by-user') {
+      console.error("Google login failed", error);
+    }
     throw error;
   }
 };

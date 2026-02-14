@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { ViewState, Session } from './types';
 import { subscribeToSessions, subscribeToAuth, logout, loginWithGoogle, subscribeToUserRegistrations } from './services/backend';
 import { isConfigured } from './lib/firebase';
@@ -70,13 +70,14 @@ export default function App() {
     try {
       await loginWithGoogle();
     } catch (error: any) {
-      if (error.code === 'auth/unauthorized-domain') {
-        console.warn("Caught unauthorized-domain error, showing help modal.");
+      // Check for domain error via code OR message text to be robust
+      const isDomainError = error.code === 'auth/unauthorized-domain' || error.message?.includes('unauthorized-domain');
+      
+      if (isDomainError) {
         setAuthDomainError(window.location.hostname);
       } else if (error.code === 'auth/popup-closed-by-user') {
         // User closed popup, no error needed
       } else {
-        console.error("Login failed", error);
         alert(`Sign in failed: ${error.message}`);
       }
     }
@@ -156,7 +157,6 @@ export default function App() {
   };
 
   const isVercelPreview = authDomainError?.includes('vercel.app') && authDomainError !== 'levin-center-signup.vercel.app';
-  const isLocalIp = authDomainError === '127.0.0.1';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -263,53 +263,39 @@ export default function App() {
             </div>
             
             <div className="p-6 space-y-6">
-              {isLocalIp && (
-                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-2">
-                   <p className="text-sm text-blue-800 font-bold mb-1">Are you developing locally?</p>
-                   <p className="text-sm text-blue-700 mb-3">
-                     Firebase authorizes <code>localhost</code> by default, but not <code>127.0.0.1</code>.
-                   </p>
-                   <Button 
-                     onClick={() => window.location.replace(window.location.href.replace('127.0.0.1', 'localhost'))}
-                     className="w-full"
-                   >
-                     Switch to localhost
-                   </Button>
-                 </div>
-              )}
-
-              {isVercelPreview && (
+              {isVercelPreview ? (
                 <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                   <p className="text-sm text-yellow-800 font-bold mb-1">⚠️ You are on a Vercel Preview</p>
+                   <p className="text-sm text-yellow-800 font-bold mb-1">⚠️ You are on a Preview URL</p>
                    <p className="text-sm text-yellow-800">
                      Vercel creates a unique URL for every update (e.g. <code>-git-main</code>). 
                      You must add <strong>this specific URL</strong> to Firebase, not just the main one.
                    </p>
                 </div>
+              ) : (
+                <p className="text-gray-700 text-sm">
+                  It usually takes <strong>5-10 minutes</strong> for Firebase to recognize a new domain. If you added it recently, just wait a bit.
+                </p>
               )}
 
               <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Copy this exact Domain:</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Current URL (Browser):</p>
                 <div className="mt-1 flex items-center space-x-2">
                   <code className="flex-1 block w-full p-3 bg-red-50 border border-red-200 rounded text-sm font-mono text-red-800 break-all font-bold">
                     {authDomainError}
                   </code>
-                  <Button 
-                     variant="secondary"
-                     onClick={() => navigator.clipboard.writeText(authDomainError)}
-                  >
-                    Copy
-                  </Button>
                 </div>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-md border border-gray-200 space-y-3">
-                 <h4 className="font-semibold text-gray-900 text-sm">Action Steps:</h4>
-                 <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+                 <h4 className="font-semibold text-gray-900 text-sm">Troubleshooting:</h4>
+                 <ul className="text-sm text-gray-600 space-y-2 list-disc list-inside">
+                    <li>Copy the URL above.</li>
                     <li>Go to Firebase Console &gt; Authentication &gt; Settings &gt; Authorized Domains.</li>
-                    <li>Click <strong>Add Domain</strong> and paste the domain above.</li>
-                    <li><strong>Wait 5 minutes</strong> for the change to propagate worldwide.</li>
-                 </ol>
+                    <li>Click <strong>Add Domain</strong> and paste it.</li>
+                    {authDomainError === '127.0.0.1' && (
+                       <li><strong>Tip:</strong> Use <code>localhost</code> instead of <code>127.0.0.1</code> in your browser.</li>
+                    )}
+                 </ul>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -324,7 +310,7 @@ export default function App() {
                    className="flex-1"
                    onClick={() => handleLogin()}
                 >
-                  I Added It, Try Again
+                  Try Login Again
                 </Button>
               </div>
             </div>

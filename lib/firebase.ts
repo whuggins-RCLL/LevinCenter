@@ -1,83 +1,46 @@
-import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
-import { getAuth, Auth } from "firebase/auth";
-import { getFunctions, Functions } from "firebase/functions";
+import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFunctions, type Functions } from "firebase/functions";
 
-const STORAGE_KEY = 'sls_firebase_config';
+// ------------------------------------------------------------------
+// INSTRUCTIONS:
+// 1. Go to Firebase Console > Project Settings > General > Your apps
+// 2. Copy the values from the SDK setup and paste them below.
+// ------------------------------------------------------------------
+
+const firebaseConfig = {
+  // Replace these with your actual Firebase values
+  apiKey: "AIzaSyDObqG7ijP6WC-_4yxamFcf_Ps1xZBekhA",
+  authDomain: "levincenter-c08c0.firebaseapp.com",
+  projectId: "levincenter-c08c0",
+  storageBucket: "levincenter-c08c0.firebasestorage.app",
+  messagingSenderId: "135687192664",
+  appId: "1:135687192664:web:72dd9532f01bab50958a2d"
+};
 
 let app: FirebaseApp;
 let db: Firestore;
 let auth: Auth;
 let functions: Functions;
-let isConfigured = false;
 
-const getStoredConfig = () => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch (e) {
-    console.error("Failed to parse stored config", e);
-    return null;
-  }
-};
+// We set this to true so the App bypasses the manual setup screen.
+// Ensure the config above is valid, or the app will crash in the console.
+const isConfigured = true; 
 
-// 1. Try Local Storage (User entered via UI)
-const storedConfig = getStoredConfig();
-
-// 2. Try Environment Variables
-const envConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-let finalConfig: any = null;
-
-if (storedConfig && storedConfig.apiKey && storedConfig.projectId) {
-  finalConfig = { ...storedConfig };
-} else if (envConfig.apiKey && envConfig.apiKey !== "undefined" && envConfig.apiKey !== "demo-key") {
-  finalConfig = { ...envConfig };
-}
-
-// Validation: Ensure we don't try to initialize with empty objects
-if (finalConfig) {
-  // Auto-populate authDomain if missing but projectId exists
-  if (finalConfig.projectId && !finalConfig.authDomain) {
-    finalConfig.authDomain = `${finalConfig.projectId}.firebaseapp.com`;
+try {
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApps()[0];
   }
   
-  // Basic validation check
-  if (!finalConfig.apiKey || !finalConfig.projectId) {
-    console.warn("Invalid config detected", finalConfig);
-    finalConfig = null;
-  }
-}
-
-if (finalConfig) {
-  try {
-    if (!getApps().length) {
-      app = initializeApp(finalConfig);
-    } else {
-      app = getApps()[0];
-    }
-    
-    db = getFirestore(app);
-    auth = getAuth(app);
-    functions = getFunctions(app);
-    isConfigured = true;
-    
-  } catch (error) {
-    console.error("Firebase initialization failed.", error);
-    // Reset config if it crashes initialization to prevent loops
-    isConfigured = false;
-  }
-} else {
-  // Fallback for types, but isConfigured remains false
-  isConfigured = false;
+  db = getFirestore(app);
+  auth = getAuth(app);
+  functions = getFunctions(app);
+  
+} catch (error) {
+  console.error("Firebase initialization failed. Check your firebaseConfig in lib/firebase.ts", error);
 }
 
 export { db, auth, functions, isConfigured };

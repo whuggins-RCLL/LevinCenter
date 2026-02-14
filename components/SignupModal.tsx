@@ -3,7 +3,7 @@ import { Session, SignupPayload } from '../types';
 import Button from './Button';
 import { formatDate, formatTime } from '../utils/formatters';
 import { signupForSession, loginWithGoogle } from '../services/backend';
-import { getAuth } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 interface SignupModalProps {
   session: Session;
@@ -12,8 +12,7 @@ interface SignupModalProps {
 }
 
 const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }) => {
-  const auth = getAuth();
-  const user = auth.currentUser;
+  const user = auth?.currentUser;
 
   const [formData, setFormData] = useState<Omit<SignupPayload, 'sessionId'>>({
     fullName: user?.displayName || '',
@@ -31,8 +30,10 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
       await loginWithGoogle();
       // Auth state change will re-render this component via parent or useEffect
     } catch (error: any) {
-      console.error("Login error", error);
-      if (error.code === 'auth/unauthorized-domain') {
+      // Check for domain error via code OR message text
+      const isDomainError = error.code === 'auth/unauthorized-domain' || error.message?.includes('unauthorized-domain');
+
+      if (isDomainError) {
          setDomainError(window.location.hostname);
       } else if (error.code !== 'auth/popup-closed-by-user') {
          setError(`Login failed: ${error.message}`);
