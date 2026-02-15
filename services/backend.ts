@@ -53,6 +53,49 @@ export const getSignup = async (sessionId: string, email: string): Promise<Signu
   }
 };
 
+export const getMySignups = async (): Promise<(Signup & { session?: Session })[]> => {
+  if (!db) throw new Error("Database not initialized");
+  if (!auth?.currentUser) throw new Error("Unauthorized");
+
+  try {
+    const q = query(
+      collectionGroup(db, "signups"), 
+      where("userId", "==", auth.currentUser.uid),
+      orderBy("createdAt", "desc")
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    const results = await Promise.all(snapshot.docs.map(async (docSnap) => {
+      const signupData = { id: docSnap.id, ...docSnap.data() } as Signup;
+      
+      // Get parent session
+      // The path is sessions/{sessionId}/signups/{signupId}
+      // docSnap.ref.parent is 'signups' collection
+      // docSnap.ref.parent.parent is 'sessions/{sessionId}' document
+      const sessionRef = docSnap.ref.parent.parent;
+      
+      if (sessionRef) {
+        const sessionSnap = await getDoc(sessionRef);
+        if (sessionSnap.exists()) {
+           const sessionData = { id: sessionSnap.id, ...sessionSnap.data() } as Session;
+           return { ...signupData, session: sessionData };
+        }
+      }
+      
+      return signupData;
+    }));
+    
+    return results;
+  } catch (error: any) {
+    console.error("Error fetching my signups:", error);
+    if (error.code === 'failed-precondition') {
+       throw new Error("Firestore index missing. Check console for link to create it.");
+    }
+    throw error;
+  }
+};
+
 export const signupForSession = async (payload: SignupPayload): Promise<{ status: "confirmed" | "waitlist" }> => {
   // Removed Cloud Function attempt to prevent warnings in client-only deployments.
   // We rely on the robust client-side transaction below.
@@ -139,59 +182,6 @@ export const sendConfirmationEmail = async (email: string, session: Session, sta
       console.warn("Missing 'mail' collection permissions in Firestore Rules.");
       // We don't throw here to avoid blocking the user flow, as email is secondary.
     }
-  }
-};
-
-export const getMySignups = async (): Promise<(Signup & { session?: Session })[]> => {
-  if (!db || !auth?.currentUser) return [];
-
-  // This requires a Firestore Index on 'signups' collection group: userId ASC
-  // If index is missing, this will fail with a link to create it in the console.
-  try {
-    const signupsQuery = query(
-      collectionGroup(db, 'signups'),
-      where('userId', '==', auth.currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const snapshot = await getDocs(signupsQuery);
-    
-    const results: (Signup & { session?: Session })[] = [];
-    
-    // We need to fetch the session details for each signup
-    // Optimally, we would duplicate data, but for now we fetch parent sessions.
-    const sessionPromises = snapshot.docs.map(async (docSnap) => {
-      const signupData = { id: docSnap.id, ...docSnap.data() } as Signup;
-      
-      // The parent of the signup doc is 'signups' collection, parent of that is the session doc
-      // Path: sessions/{sessionId}/signups/{signupId}
-      const sessionRef = docSnap.ref.parent.parent;
-      if (sessionRef) {
-        const sessionSnap = await getDoc(sessionRef);
-        if (sessionSnap.exists()) {
-          return {
-            ...signupData,
-            session: { id: sessionSnap.id, ...sessionSnap.data() } as Session
-          };
-        }
-      }
-      return signupData;
-    });
-
-    return await Promise.all(sessionPromises);
-
-  } catch (error: any) {
-    console.error("Error fetching history:", error);
-    // Propagate permission errors to the UI so the developer knows to fix rules
-    if (error.code === 'permission-denied') {
-      throw new Error("Missing Firestore permissions. Check Database Rules.");
-    }
-    if (error.code === 'failed-precondition') {
-      console.warn("Missing Index for Collection Group query. Please create one in Firebase Console.");
-      // throw new Error("Missing Index. Check console for link.");
-    }
-    // Return empty array for other errors to avoid crashing UI completely
-    return [];
   }
 };
 

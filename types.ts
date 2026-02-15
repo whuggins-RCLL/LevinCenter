@@ -37,4 +37,4 @@ export interface UserProfile {
   createdAt: any;
 }
 
-export type ViewState = 'browse' | 'admin' | 'history';
+export type ViewState = 'browse' | 'admin';

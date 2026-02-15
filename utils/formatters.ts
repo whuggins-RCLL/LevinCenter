@@ -10,6 +10,7 @@ export const formatDate = (timestamp: any): string => {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    timeZone: 'America/Los_Angeles' // Force Stanford Time
   }).format(date);
 };
 
@@ -21,6 +22,7 @@ export const formatTime = (timestamp: any): string => {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: 'numeric',
+    timeZone: 'America/Los_Angeles' // Force Stanford Time
   }).format(date);
 };
 
@@ -42,22 +44,33 @@ export const generateGoogleCalendarUrl = (session: { topic: string; location: st
   }
 
   // Format: YYYYMMDDTHHmmSS
-  // We construct this manually from the local date components to preserve the "face value" of the time
-  // (e.g. if the user entered 9:00, we want "090000").
-  // We then append &ctz=America/Los_Angeles to the URL to tell Google "This 9:00 is 9:00 Pacific Time".
-  const formatFloating = (d: Date) => {
-    const pad = (n: number) => n < 10 ? '0' + n : n;
-    return '' + d.getFullYear() +
-      pad(d.getMonth() + 1) +
-      pad(d.getDate()) +
-      'T' +
-      pad(d.getHours()) +
-      pad(d.getMinutes()) +
-      pad(d.getSeconds());
+  // We explicitly extract the components in Pacific Time (Stanford Time)
+  // regardless of the user's browser timezone.
+  const formatToPacificISO = (date: Date) => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const p = (type: string) => parts.find(x => x.type === type)?.value || '00';
+    
+    // Check if hour is '24' (midnight edge case in some browsers) and handle if necessary, 
+    // though en-US hour12:false usually gives 00-23.
+    let hour = p('hour');
+    if (hour === '24') hour = '00';
+    
+    return `${p('year')}${p('month')}${p('day')}T${hour}${p('minute')}${p('second')}`;
   };
 
-  const start = formatFloating(startDate);
-  const end = formatFloating(endDate);
+  const start = formatToPacificISO(startDate);
+  const end = formatToPacificISO(endDate);
   
   const details = `Instructor: ${session.instructor}\nLocation: ${session.location}\n\nRegistered via SLS Levin Center Portal.`;
   
@@ -69,7 +82,7 @@ export const generateGoogleCalendarUrl = (session: { topic: string; location: st
   url.searchParams.append('location', session.location);
   url.searchParams.append('sf', 'true');
   url.searchParams.append('output', 'xml');
-  // CRITICAL: Force Stanford Timezone (Pacific)
+  // Explicitly tell Google that the times above are in Pacific Time
   url.searchParams.append('ctz', 'America/Los_Angeles');
 
   return url.toString();

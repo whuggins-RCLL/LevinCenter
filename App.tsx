@@ -6,7 +6,6 @@ import SessionCard from './components/SessionCard';
 import SignupModal from './components/SignupModal';
 import AdminView from './components/AdminView';
 import AuthScreen from './components/AuthScreen';
-import MySignups from './components/MySignups';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('browse');
@@ -72,10 +71,6 @@ export default function App() {
       return <AdminView sessions={sessions} />;
     }
     
-    if (view === 'history') {
-      return <MySignups />;
-    }
-
     // Browse View
     return (
       <div className="space-y-8">
@@ -127,15 +122,6 @@ export default function App() {
                   className="px-3 py-2 rounded-md text-sm font-medium text-gray-100 hover:bg-[#7a1212] transition-colors"
                 >
                   All Sessions
-                </button>
-              )}
-
-              {view !== 'history' && (
-                <button 
-                  onClick={() => setView('history')}
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-100 hover:bg-[#7a1212] transition-colors"
-                >
-                  My History
                 </button>
               )}
 
@@ -199,7 +185,6 @@ export default function App() {
           onClose={() => setSelectedSession(null)}
           onSuccess={() => {
             setSelectedSession(null);
-            // Optionally redirect to history or just stay on browse
           }}
         />
       )}

@@ -41,12 +41,6 @@ service cloud.firestore {
       }
     }
 
-    // COLLECTION GROUP QUERY RULE (REQUIRED for "My History")
-    match /{path=**}/signups/{signupId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-    }
-
     // EMAIL EXTENSION COLLECTION (REQUIRED for Email Trigger)
     match /mail/{mailId} {
       allow create: if request.auth != null;
@@ -229,7 +223,7 @@ const AdminView: React.FC<AdminViewProps> = ({ sessions }) => {
                  Action Required: Update Firestore Rules
               </h3>
               <p className="text-sm text-slate-400 mt-1">
-                To fix "Missing permissions" errors for <strong>History</strong> and <strong>Email</strong>, copy the code below and paste it into your <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-blue-400 underline">Firebase Console</a> &gt; Firestore Database &gt; Rules tab.
+                To fix "Missing permissions" errors for <strong>User Logins</strong> or <strong>Admin Actions</strong>, copy the code below and paste it into your <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-blue-400 underline">Firebase Console</a> &gt; Firestore Database &gt; Rules tab.
               </p>
             </div>
             <button onClick={() => setShowRules(false)} className="text-slate-400 hover:text-white">
