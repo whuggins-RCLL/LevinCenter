@@ -57,6 +57,10 @@ const AdminView: React.FC<AdminViewProps> = ({ sessions }) => {
   const [rosterSession, setRosterSession] = useState<Session | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  
+  // Delete Confirmation State
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleGenerateAnalysis = async () => {
     setAnalyzing(true);
@@ -84,15 +88,21 @@ const AdminView: React.FC<AdminViewProps> = ({ sessions }) => {
     }
   };
 
-  const handleDeleteSession = async (session: Session) => {
-    if (!window.confirm(`Are you sure you want to delete "${session.topic}"? This cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteClick = (session: Session) => {
+    setSessionToDelete(session);
+  };
+
+  const confirmDelete = async () => {
+    if (!sessionToDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteSession(session.id);
+      await deleteSession(sessionToDelete.id);
+      setSessionToDelete(null);
     } catch (error) {
       console.error("Delete failed", error);
       alert("Failed to delete session. Ensure you have admin permissions.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -277,7 +287,7 @@ const AdminView: React.FC<AdminViewProps> = ({ sessions }) => {
                 session={session} 
                 onSignup={() => {}} 
                 isAdmin={true}
-                onDelete={handleDeleteSession}
+                onDelete={handleDeleteClick}
                 onEdit={handleEditSession}
                 onViewRoster={(s) => setRosterSession(s)}
               />
@@ -299,6 +309,25 @@ const AdminView: React.FC<AdminViewProps> = ({ sessions }) => {
           session={rosterSession}
           onClose={() => setRosterSession(null)}
         />
+      )}
+
+      {sessionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 animate-fade-in">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Session?</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <strong>{sessionToDelete.topic}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button variant="secondary" onClick={() => setSessionToDelete(null)} disabled={isDeleting}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={confirmDelete} isLoading={isDeleting}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
