@@ -33,7 +33,6 @@ export const getStatusBadgeColor = (status: string, spotsLeft: number, isWaitlis
 export const generateGoogleCalendarUrl = (session: { topic: string; location: string; startAt: any; endAt?: any; instructor: string }) => {
   const startDate = session.startAt.toDate ? session.startAt.toDate() : new Date(session.startAt.seconds * 1000);
   
-  // Determine End Date
   let endDate;
   if (session.endAt) {
     endDate = session.endAt.toDate ? session.endAt.toDate() : new Date(session.endAt.seconds * 1000);
@@ -42,13 +41,23 @@ export const generateGoogleCalendarUrl = (session: { topic: string; location: st
     endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
   }
 
-  // Format: YYYYMMDDTHHmmSSZ (UTC)
-  const formatGCalDate = (date: Date) => {
-    return date.toISOString().replace(/-|:|\.\d+/g, "");
+  // Format: YYYYMMDDTHHmmSS
+  // We construct this manually from the local date components to preserve the "face value" of the time
+  // (e.g. if the user entered 9:00, we want "090000").
+  // We then append &ctz=America/Los_Angeles to the URL to tell Google "This 9:00 is 9:00 Pacific Time".
+  const formatFloating = (d: Date) => {
+    const pad = (n: number) => n < 10 ? '0' + n : n;
+    return '' + d.getFullYear() +
+      pad(d.getMonth() + 1) +
+      pad(d.getDate()) +
+      'T' +
+      pad(d.getHours()) +
+      pad(d.getMinutes()) +
+      pad(d.getSeconds());
   };
 
-  const start = formatGCalDate(startDate);
-  const end = formatGCalDate(endDate);
+  const start = formatFloating(startDate);
+  const end = formatFloating(endDate);
   
   const details = `Instructor: ${session.instructor}\nLocation: ${session.location}\n\nRegistered via SLS Levin Center Portal.`;
   
@@ -60,6 +69,8 @@ export const generateGoogleCalendarUrl = (session: { topic: string; location: st
   url.searchParams.append('location', session.location);
   url.searchParams.append('sf', 'true');
   url.searchParams.append('output', 'xml');
+  // CRITICAL: Force Stanford Timezone (Pacific)
+  url.searchParams.append('ctz', 'America/Los_Angeles');
 
   return url.toString();
 };

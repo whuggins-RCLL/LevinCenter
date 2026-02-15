@@ -6,6 +6,7 @@ import { formatDate, formatTime } from '../utils/formatters';
 const MySignups: React.FC = () => {
   const [items, setItems] = useState<(Signup & { session?: Session })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadHistory();
@@ -13,15 +14,47 @@ const MySignups: React.FC = () => {
 
   const loadHistory = async () => {
     setLoading(true);
-    const data = await getMySignups();
-    setItems(data);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await getMySignups();
+      setItems(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Failed to load history.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center py-20">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8C1515]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">My Signup History</h1>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h3 className="text-lg font-medium text-red-800 mb-2">Error Loading History</h3>
+          <p className="text-red-700">{error}</p>
+          
+          {error.includes("Firestore permissions") && (
+            <div className="mt-4 p-4 bg-white rounded border border-red-100 text-sm text-gray-700">
+              <strong className="block text-red-800 mb-1">Developer Action Required:</strong>
+              You need to update your Firestore Database Rules in the Firebase Console to allow "Collection Group Queries".
+              <ol className="list-decimal ml-5 mt-2 space-y-1">
+                <li>Go to the <strong>Admin Dashboard</strong> in this app.</li>
+                <li>Click the red <strong>DB Rules</strong> button.</li>
+                <li>Copy the provided rules.</li>
+                <li>Paste them into your Firebase Console &gt; Firestore &gt; Rules.</li>
+              </ol>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

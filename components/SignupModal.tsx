@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import { Session, SignupPayload } from '../types';
 import Button from './Button';
 import { formatDate, formatTime, generateGoogleCalendarUrl } from '../utils/formatters';
-import { signupForSession, getSignup, sendConfirmationEmail } from '../services/backend';
+import { signupForSession, getSignup } from '../services/backend';
 
 interface SignupModalProps {
   session: Session;
@@ -21,7 +21,6 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
   const [signupResult, setSignupResult] = useState<{ status: 'confirmed' | 'waitlist' } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [emailSent, setEmailSent] = useState(false);
 
   // Determine if this is a waitlist signup
   const capacity = session.capacity ?? -1;
@@ -110,15 +109,6 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
     doc.save(`SLS_Confirmation_${session.id.substring(0,4)}.pdf`);
   };
 
-  const handleSendEmail = async () => {
-    if (emailSent) return;
-    const status = signupResult?.status === 'waitlist' ? 'Waitlist' : 'Confirmed';
-    
-    // Simulate one-click send (Trigger backend process)
-    await sendConfirmationEmail(formData.email, session, status);
-    setEmailSent(true);
-  };
-
   const handleGoogleCalendar = () => {
     const url = generateGoogleCalendarUrl(session);
     window.open(url, '_blank');
@@ -167,29 +157,6 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 Add to Google Calendar
-              </Button>
-
-              <Button 
-                variant={emailSent ? "secondary" : "secondary"} 
-                className={`w-full justify-center ${emailSent ? "text-green-600 bg-green-50 border-green-200" : ""}`}
-                onClick={handleSendEmail}
-                disabled={emailSent}
-              >
-                 {emailSent ? (
-                   <>
-                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                     </svg>
-                     Sent to Inbox
-                   </>
-                 ) : (
-                   <>
-                     <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Email Confirmation to Self
-                   </>
-                 )}
               </Button>
             </div>
 

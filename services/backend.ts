@@ -133,8 +133,12 @@ export const sendConfirmationEmail = async (email: string, session: Session, sta
       createdAt: serverTimestamp()
     });
     console.log("Email trigger document created.");
-  } catch (e) {
-    console.warn("Could not trigger email (likely permission or config issue):", e);
+  } catch (e: any) {
+    console.warn("Could not trigger email:", e);
+    if (e.code === 'permission-denied') {
+      console.warn("Missing 'mail' collection permissions in Firestore Rules.");
+      // We don't throw here to avoid blocking the user flow, as email is secondary.
+    }
   }
 };
 
@@ -178,9 +182,15 @@ export const getMySignups = async (): Promise<(Signup & { session?: Session })[]
 
   } catch (error: any) {
     console.error("Error fetching history:", error);
+    // Propagate permission errors to the UI so the developer knows to fix rules
+    if (error.code === 'permission-denied') {
+      throw new Error("Missing Firestore permissions. Check Database Rules.");
+    }
     if (error.code === 'failed-precondition') {
       console.warn("Missing Index for Collection Group query. Please create one in Firebase Console.");
+      // throw new Error("Missing Index. Check console for link.");
     }
+    // Return empty array for other errors to avoid crashing UI completely
     return [];
   }
 };

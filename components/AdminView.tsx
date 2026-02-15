@@ -34,25 +34,22 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if isAdmin();
       
-      // Signups
+      // Signups Subcollection (Standard Access)
       match /signups/{signupId} {
         allow read: if true;
-        
-        // Create: Check new data (request.resource)
-        allow create: if request.auth != null && (
-          request.auth.uid == request.resource.data.userId || isAdmin()
-        );
-        
-        // Update: Check new data (request.resource) AND existing data (resource) if needed
-        allow update: if request.auth != null && (
-          request.auth.uid == resource.data.userId || isAdmin()
-        );
-        
-        // Delete: Check existing data (resource) - request.resource is null here
-        allow delete: if request.auth != null && (
-          request.auth.uid == resource.data.userId || isAdmin()
-        );
+        allow write: if request.auth != null; 
       }
+    }
+
+    // COLLECTION GROUP QUERY RULE (REQUIRED for "My History")
+    match /{path=**}/signups/{signupId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // EMAIL EXTENSION COLLECTION (REQUIRED for Email Trigger)
+    match /mail/{mailId} {
+      allow create: if request.auth != null;
     }
   }
 }`;
@@ -182,8 +179,12 @@ const AdminView: React.FC<AdminViewProps> = ({ sessions }) => {
           <p className="text-gray-500">Manage sessions and view rosters.</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="ghost" onClick={() => setShowRules(!showRules)}>
-            {showRules ? 'Hide Rules' : 'DB Rules'}
+          <Button 
+            variant="danger" 
+            onClick={() => setShowRules(!showRules)}
+            className="animate-pulse shadow-lg ring-2 ring-red-300 ring-offset-2"
+          >
+            {showRules ? 'Hide Rules' : '⚠️ DB Rules'}
           </Button>
           <Button 
             variant="ghost" 
@@ -220,18 +221,29 @@ const AdminView: React.FC<AdminViewProps> = ({ sessions }) => {
       </div>
 
       {showRules && (
-        <div className="bg-slate-800 text-slate-200 p-6 rounded-lg shadow-lg mb-6 animate-fade-in">
+        <div className="bg-slate-800 text-slate-200 p-6 rounded-lg shadow-lg mb-6 animate-fade-in border-2 border-red-500">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h3 className="text-lg font-bold text-white">Firestore Security Rules</h3>
-              <p className="text-sm text-slate-400">Copy this into Firebase Console &gt; Firestore Database &gt; Rules</p>
+              <h3 className="text-lg font-bold text-white flex items-center">
+                 <span className="text-2xl mr-2">⚠️</span>
+                 Action Required: Update Firestore Rules
+              </h3>
+              <p className="text-sm text-slate-400 mt-1">
+                To fix "Missing permissions" errors for <strong>History</strong> and <strong>Email</strong>, copy the code below and paste it into your <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-blue-400 underline">Firebase Console</a> &gt; Firestore Database &gt; Rules tab.
+              </p>
             </div>
             <button onClick={() => setShowRules(false)} className="text-slate-400 hover:text-white">
               ✕
             </button>
           </div>
-          <div className="bg-black rounded p-4 overflow-x-auto">
-            <pre className="text-xs font-mono text-green-400 leading-relaxed">
+          <div className="bg-black rounded p-4 overflow-x-auto relative group">
+             <button 
+                onClick={() => navigator.clipboard.writeText(FIRESTORE_RULES)}
+                className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded text-white opacity-50 group-hover:opacity-100 transition-opacity"
+             >
+               Copy
+             </button>
+            <pre className="text-xs font-mono text-green-400 leading-relaxed whitespace-pre-wrap">
               {FIRESTORE_RULES}
             </pre>
           </div>
