@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import jsPDF from 'jspdf';
 import { Session, SignupPayload } from '../types';
 import Button from './Button';
-import { formatDate, formatTime } from '../utils/formatters';
-import { signupForSession, loginWithGoogle } from '../services/backend';
-import { auth } from '../lib/firebase';
+import { formatDate, formatTime, generateGoogleCalendarUrl } from '../utils/formatters';
+import { signupForSession, getSignup, sendConfirmationEmail } from '../services/backend';
 
 interface SignupModalProps {
   session: Session;
@@ -12,115 +12,22 @@ interface SignupModalProps {
 }
 
 const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }) => {
-  const user = auth?.currentUser;
-
+  const [view, setView] = useState<'form' | 'success'>('form');
   const [formData, setFormData] = useState<Omit<SignupPayload, 'sessionId'>>({
-    fullName: user?.displayName || '',
-    email: user?.email || '',
-    classYear: '1L',
-    uid: user?.uid
+    fullName: '',
+    email: '',
+    classYear: '1L'
   });
-  
+  const [signupResult, setSignupResult] = useState<{ status: 'confirmed' | 'waitlist' } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [domainError, setDomainError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
 
-  const handleLogin = async () => {
-    try {
-      await loginWithGoogle();
-      // Auth state change will re-render this component via parent or useEffect
-    } catch (error: any) {
-      // Check for domain error via code OR message text
-      const isDomainError = error.code === 'auth/unauthorized-domain' || error.message?.includes('unauthorized-domain');
-
-      if (isDomainError) {
-         setDomainError(window.location.hostname);
-      } else if (error.code !== 'auth/popup-closed-by-user') {
-         setError(`Login failed: ${error.message}`);
-      }
-    }
-  };
-
-  // If we hit the domain error during login attempt
-  if (domainError) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-          <div className="bg-red-50 p-6 border-b border-red-100 flex items-start space-x-4">
-            <div className="flex-shrink-0">
-              <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Login Blocked</h3>
-              <p className="text-sm text-red-800 mt-1">Domain not authorized.</p>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            <p className="text-sm text-gray-600">
-              Go to Firebase Console &gt; Authentication. You are on the <strong>Users</strong> tab. Click the <strong>Settings</strong> tab next to it.
-            </p>
-            <p className="text-sm text-gray-600">
-              Then click <strong>Authorized Domains</strong> &gt; <strong>Add Domain</strong> and paste:
-            </p>
-            <div className="flex items-center space-x-2">
-              <code className="flex-1 block w-full p-2 bg-gray-100 border border-gray-300 rounded text-xs font-mono text-gray-800 break-all">
-                {domainError}
-              </code>
-              <Button 
-                variant="secondary"
-                className="text-xs py-1"
-                onClick={() => navigator.clipboard.writeText(domainError)}
-              >
-                Copy
-              </Button>
-            </div>
-            <div className="flex justify-end pt-2">
-              <Button onClick={() => setDomainError(null)}>Try Again</Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // If not logged in, we show a prompt
-  if (!user) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden text-center p-8">
-           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-           </div>
-           <h3 className="text-lg font-medium text-gray-900 mb-2">Sign In Required</h3>
-           <p className="text-sm text-gray-500 mb-6">
-             You must be signed in to register for sessions.
-           </p>
-           
-           {error && (
-             <div className="mb-4 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">
-               {error}
-             </div>
-           )}
-
-           <Button 
-             onClick={handleLogin}
-             className="w-full flex justify-center items-center gap-2"
-           >
-             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-               <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
-             </svg>
-             Sign in with Google
-           </Button>
-           <button onClick={onClose} className="mt-4 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
-        </div>
-      </div>
-    )
-  }
+  // Determine if this is a waitlist signup
+  const capacity = session.capacity ?? -1;
+  const isUnlimited = capacity === -1;
+  const spotsTaken = session.confirmedCount;
+  const isWaitlist = !isUnlimited && spotsTaken >= capacity;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,25 +37,182 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
     try {
       const result = await signupForSession({
         sessionId: session.id,
-        ...formData,
-        uid: user.uid // Ensure we use the authenticated UID
+        ...formData
       });
       
-      alert(`Successfully registered! Status: ${result.status.toUpperCase()}`);
-      onSuccess();
-      onClose();
+      setSignupResult(result);
+      setView('success');
     } catch (err: any) {
+      if (err.message && (err.message.includes("already signed up") || err.message.includes("already registered"))) {
+        try {
+          const existing = await getSignup(session.id, formData.email);
+          setSignupResult({ status: existing ? existing.status : (isWaitlist ? 'waitlist' : 'confirmed') });
+          setView('success');
+          return;
+        } catch (fetchErr) {
+          console.warn("Could not fetch existing signup", fetchErr);
+        }
+      }
+      
       setError(err.message || "An error occurred during signup.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDownloadPdf = () => {
+    const doc = new jsPDF();
+    const status = signupResult?.status === 'waitlist' ? 'Waitlist Confirmed' : 'Registration Confirmed';
+    const color = signupResult?.status === 'waitlist' ? [200, 150, 0] : [140, 21, 21];
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text("SLS Levin Center", 20, 20);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text(status, 20, 30);
+    
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+
+    // Details
+    doc.setFontSize(12);
+    let y = 50;
+    
+    const addLine = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, 60, y);
+      y += 10;
+    };
+
+    addLine("Topic:", session.topic);
+    addLine("Instructor:", session.instructor);
+    addLine("Date:", formatDate(session.startAt));
+    addLine("Time:", formatTime(session.startAt));
+    addLine("Location:", session.location);
+    
+    y += 5;
+    addLine("Name:", formData.fullName);
+    addLine("Email:", formData.email);
+    addLine("Status:", signupResult?.status.toUpperCase() || 'UNKNOWN');
+
+    if (signupResult?.status === 'waitlist') {
+      y += 10;
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(100, 100, 100);
+      doc.text("You will be notified via email if a spot opens up.", 20, y);
+    }
+
+    doc.save(`SLS_Confirmation_${session.id.substring(0,4)}.pdf`);
+  };
+
+  const handleSendEmail = async () => {
+    if (emailSent) return;
+    const status = signupResult?.status === 'waitlist' ? 'Waitlist' : 'Confirmed';
+    
+    // Simulate one-click send (Trigger backend process)
+    await sendConfirmationEmail(formData.email, session, status);
+    setEmailSent(true);
+  };
+
+  const handleGoogleCalendar = () => {
+    const url = generateGoogleCalendarUrl(session);
+    window.open(url, '_blank');
+  };
+
+  if (view === 'success') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+          <div className="p-6 text-center">
+            <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${signupResult?.status === 'waitlist' ? 'bg-yellow-100' : 'bg-green-100'} mb-4`}>
+              <svg className={`h-6 w-6 ${signupResult?.status === 'waitlist' ? 'text-yellow-600' : 'text-green-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              {signupResult?.status === 'waitlist' ? 'Added to Waitlist' : 'Registration Confirmed'}
+            </h3>
+            
+            <div className="mt-2 px-2">
+              <p className="text-sm text-gray-500">
+                You are set for <strong>{session.topic}</strong>. 
+                {signupResult?.status === 'waitlist' && " We will notify you if a spot becomes available."}
+              </p>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <Button 
+                variant="secondary" 
+                className="w-full justify-center"
+                onClick={handleDownloadPdf}
+              >
+                <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download PDF Receipt
+              </Button>
+
+              <Button 
+                variant="secondary" 
+                className="w-full justify-center"
+                onClick={handleGoogleCalendar}
+              >
+                 <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Add to Google Calendar
+              </Button>
+
+              <Button 
+                variant={emailSent ? "secondary" : "secondary"} 
+                className={`w-full justify-center ${emailSent ? "text-green-600 bg-green-50 border-green-200" : ""}`}
+                onClick={handleSendEmail}
+                disabled={emailSent}
+              >
+                 {emailSent ? (
+                   <>
+                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                     </svg>
+                     Sent to Inbox
+                   </>
+                 ) : (
+                   <>
+                     <svg className="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Email Confirmation to Self
+                   </>
+                 )}
+              </Button>
+            </div>
+
+            <div className="mt-6 border-t border-gray-100 pt-4">
+              <Button onClick={() => { onSuccess(); onClose(); }} className="w-full justify-center">
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ... (Form view remains unchanged, just returning standard form)
+  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-900">Confirm Registration</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            {isWaitlist ? 'Join Waitlist' : 'Sign Up'}
+          </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -163,6 +227,12 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
             <p className="text-sm text-gray-500 mt-2">
               {formatDate(session.startAt)} • {formatTime(session.startAt)} • {session.location}
             </p>
+
+            {isWaitlist && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                <strong>Note:</strong> This session is currently full. Completing this form will add you to the waitlist (Position: {session.waitlistCount + 1}).
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -182,11 +252,11 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
               <input
                 type="email"
                 required
-                disabled // Lock email to auth email for security
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 text-gray-500 sm:text-sm border p-2 cursor-not-allowed"
+                placeholder="jane@stanford.edu"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#8C1515] focus:ring-[#8C1515] sm:text-sm border p-2"
                 value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
-              <p className="text-xs text-gray-500 mt-1">Linked to your signed-in account.</p>
             </div>
 
             <div>
@@ -214,8 +284,13 @@ const SignupModal: React.FC<SignupModalProps> = ({ session, onClose, onSuccess }
               <Button type="button" variant="ghost" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" isLoading={loading}>
-                Confirm
+              <Button 
+                type="submit" 
+                isLoading={loading}
+                variant={isWaitlist ? 'secondary' : 'primary'}
+                className={isWaitlist ? 'border-yellow-500 text-yellow-700 hover:bg-yellow-50' : ''}
+              >
+                {isWaitlist ? 'Join Waitlist' : 'Sign Up'}
               </Button>
             </div>
           </form>

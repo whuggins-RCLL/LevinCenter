@@ -7,19 +7,12 @@ interface SessionCardProps {
   session: Session;
   onSignup: (session: Session) => void;
   isAdmin?: boolean;
-  isRegistered?: boolean;
   onDelete?: (session: Session) => void;
   onViewRoster?: (session: Session) => void;
+  onEdit?: (session: Session) => void;
 }
 
-const SessionCard: React.FC<SessionCardProps> = ({ 
-  session, 
-  onSignup, 
-  isAdmin, 
-  isRegistered, 
-  onDelete,
-  onViewRoster
-}) => {
+const SessionCard: React.FC<SessionCardProps> = ({ session, onSignup, isAdmin, onDelete, onViewRoster, onEdit }) => {
   const capacity = session.capacity ?? -1;
   const isUnlimited = capacity === -1;
   const spotsTaken = session.confirmedCount;
@@ -37,20 +30,15 @@ const SessionCard: React.FC<SessionCardProps> = ({
         : `${spotsLeft} spots left`;
 
   return (
-    <div className={`bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col h-full ${isRegistered ? 'border-[#8C1515] ring-1 ring-[#8C1515] ring-opacity-20' : 'border-gray-200'}`}>
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col h-full">
       <div className="p-5 flex-1">
         <div className="flex justify-between items-start mb-2">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>
             {badgeText}
           </span>
-          {isRegistered && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#8C1515] text-white">
-              ✓ Registered
-            </span>
-          )}
-          {isAdmin && !isRegistered && (
+          {isAdmin && (
             <span className="text-xs text-gray-400 font-mono">
-              Admin Mode
+              ID: {session.id.slice(0, 4)}...
             </span>
           )}
         </div>
@@ -77,20 +65,38 @@ const SessionCard: React.FC<SessionCardProps> = ({
       
       <div className="p-5 border-t border-gray-100 bg-gray-50 rounded-b-lg">
         {isAdmin ? (
-          <div className="flex flex-col space-y-2">
-            <Button 
+          <div className="space-y-2">
+             <Button 
+              type="button"
               variant="secondary" 
               className="w-full text-sm"
-              onClick={() => onViewRoster?.(session)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewRoster?.(session);
+              }}
             >
-              View Roster ({session.confirmedCount})
+              View Roster ({session.confirmedCount + session.waitlistCount})
             </Button>
             <div className="flex space-x-2">
-              <Button variant="ghost" className="w-full text-sm bg-white border border-gray-200">Edit</Button>
               <Button 
+                type="button"
+                variant="secondary" 
+                className="w-full text-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(session);
+                }}
+              >
+                Edit
+              </Button>
+              <Button 
+                type="button"
                 variant="danger" 
                 className="w-full text-sm"
-                onClick={() => onDelete?.(session)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete?.(session);
+                }}
               >
                 Delete
               </Button>
@@ -98,12 +104,13 @@ const SessionCard: React.FC<SessionCardProps> = ({
           </div>
         ) : (
           <Button 
-            className="w-full" 
-            disabled={session.status === 'closed' || isRegistered}
-            variant={isRegistered ? 'secondary' : 'primary'}
+            type="button"
+            className={`w-full ${isWaitlist ? 'border-yellow-500 text-yellow-700 hover:bg-yellow-50' : ''}`}
+            variant={isWaitlist ? 'secondary' : 'primary'}
+            disabled={session.status === 'closed'}
             onClick={() => onSignup(session)}
           >
-            {isRegistered ? 'Registered' : (isWaitlist ? 'Join Waitlist' : 'Sign Up Now')}
+            {isWaitlist ? 'Join Waitlist' : 'Sign Up Now'}
           </Button>
         )}
       </div>

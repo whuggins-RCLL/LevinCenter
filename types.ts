@@ -14,13 +14,13 @@ export interface Session {
 }
 
 export interface Signup {
-  id: string; // usually email
+  id: string;
   fullName: string;
   email: string;
   classYear: string;
   status: 'confirmed' | 'waitlist';
+  userId?: string;
   createdAt: any;
-  uid?: string;
 }
 
 export interface SignupPayload {
@@ -28,7 +28,13 @@ export interface SignupPayload {
   fullName: string;
   email: string;
   classYear: string;
-  uid?: string; // Optional for backward compatibility or admin Adds
 }
 
-export type ViewState = 'browse' | 'admin';
+export interface UserProfile {
+  uid: string;
+  email: string;
+  role: 'student' | 'admin';
+  createdAt: any;
+}
+
+export type ViewState = 'browse' | 'admin' | 'history';
