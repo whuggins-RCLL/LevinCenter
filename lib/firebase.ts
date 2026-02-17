@@ -8,23 +8,46 @@ let db: Firestore | undefined;
 let auth: Auth | undefined;
 let functions: Functions | undefined;
 
+// --- SAFE ENV ACCESS ---
+// This wrapper prevents the "Cannot read properties of undefined" crash
+// and supports both Vite (import.meta.env) and standard Node (process.env)
+const getEnv = (key: string) => {
+  try {
+    // 1. Try Vite standard (import.meta.env)
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      return import.meta.env[key];
+    }
+    
+    // 2. Try Node/Process standard (fallback)
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env) {
+      // @ts-ignore
+      return process.env[key];
+    }
+  } catch (e) {
+    console.warn("Error reading env var:", key);
+  }
+  return undefined;
+};
+
 // --- CONFIGURATION ---
-// 1. Environment Variables (Priority)
-// 2. Local Storage (Fallback for UI-based setup)
 
 const getEnvConfig = () => {
   return {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+    apiKey: getEnv("VITE_FIREBASE_API_KEY"),
+    authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN"),
+    projectId: getEnv("VITE_FIREBASE_PROJECT_ID"),
+    storageBucket: getEnv("VITE_FIREBASE_STORAGE_BUCKET"),
+    messagingSenderId: getEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
+    appId: getEnv("VITE_FIREBASE_APP_ID"),
+    measurementId: getEnv("VITE_FIREBASE_MEASUREMENT_ID")
   };
 };
 
-const getStoredConfig = () => {
+// 2. Local Storage (Fallback for UI-based setup)
+const getStoredConfig = (): FirebaseOptions | null => {
   try {
     const stored = localStorage.getItem('firebase_config');
     return stored ? JSON.parse(stored) : null;
@@ -34,41 +57,45 @@ const getStoredConfig = () => {
 };
 
 const envConfig = getEnvConfig();
-// Simple check to ensure keys are loaded from env
 const hasEnvConfig = !!envConfig.apiKey && !!envConfig.projectId;
 
-const config = hasEnvConfig ? envConfig : getStoredConfig();
+// Priority: Env Vars > Local Storage
+let firebaseConfig: FirebaseOptions = hasEnvConfig ? envConfig : (getStoredConfig() || {});
 
-export const isConfigured = !!config && !!config.apiKey && !!config.projectId;
+export let isConfigured = !!firebaseConfig.apiKey && !!firebaseConfig.projectId;
 
-const init = (cfg: FirebaseOptions) => {
-  try {
-    if (!getApps().length) {
-      app = initializeApp(cfg);
-    } else {
-      app = getApps()[0];
+const initialize = () => {
+  if (isConfigured) {
+    try {
+      if (!getApps().length) {
+        app = initializeApp(firebaseConfig);
+      } else {
+        app = getApps()[0];
+      }
+      
+      db = getFirestore(app);
+      auth = getAuth(app);
+      functions = getFunctions(app);
+      console.log("Firebase initialized successfully");
+      return true;
+    } catch (error) {
+      console.error("Firebase initialization failed:", error);
+      return false;
     }
-    
-    db = getFirestore(app);
-    auth = getAuth(app);
-    functions = getFunctions(app);
-    console.log("Firebase initialized");
-    return true;
-  } catch (error) {
-    console.error("Firebase initialization failed.", error);
-    return false;
+  } else {
+    console.log("Firebase not configured yet. Waiting for keys.");
   }
+  return false;
 };
 
-if (isConfigured) {
-  init(config);
-} else {
-  console.warn("Firebase configuration missing. Ensure VITE_FIREBASE_API_KEY and VITE_FIREBASE_PROJECT_ID are set in .env.local or use the Setup Screen.");
-}
+// Attempt initial setup
+initialize();
 
-export const saveFirebaseConfig = (newConfig: any) => {
-  localStorage.setItem('firebase_config', JSON.stringify(newConfig));
-  return init(newConfig);
+export const saveFirebaseConfig = (config: any) => {
+  localStorage.setItem('firebase_config', JSON.stringify(config));
+  firebaseConfig = config;
+  isConfigured = !!firebaseConfig.apiKey && !!firebaseConfig.projectId;
+  return initialize();
 };
 
 export { db, auth, functions };
