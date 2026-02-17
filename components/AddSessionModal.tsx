@@ -24,9 +24,11 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({ initialData, onClos
   useEffect(() => {
     if (initialData) {
       // Format timestamp to YYYY-MM-DDThh:mm for input[type="datetime-local"]
-      const date = initialData.startAt.toDate 
-        ? initialData.startAt.toDate() 
-        : new Date(initialData.startAt.seconds * 1000);
+      // Handle both Firestore Timestamp (with toDate) and serialized objects (with seconds)
+      const startAt = initialData.startAt as any;
+      const date = startAt.toDate 
+        ? startAt.toDate() 
+        : new Date(startAt.seconds * 1000);
         
       // Adjust to local ISO string without timezone issues for the input
       const localIso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
