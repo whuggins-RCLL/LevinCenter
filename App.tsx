@@ -24,41 +24,7 @@ export default function App() {
 
   // --- CHECK CONFIGURATION ---
   if (!isConfigured) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
-        <h1 className="text-3xl font-bold text-[#8C1515] mb-4">Configuration Required</h1>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl text-left space-y-4">
-          <p className="text-gray-700">
-            The app cannot connect to Firebase. You have two options:
-          </p>
-          
-          <div className="border-l-4 border-[#8C1515] pl-4 py-2 bg-gray-50">
-            <h3 className="font-bold text-gray-900">Option 1: Environment Variables (Recommended for Vercel)</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Add your keys to your <code>.env</code> file or Vercel Project Settings with the prefix <code>VITE_</code>.
-            </p>
-          </div>
-
-          <div className="border-l-4 border-gray-400 pl-4 py-2 bg-gray-50">
-            <h3 className="font-bold text-gray-900">Option 2: Manual Config (For Local Testing)</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Open <code>lib/firebase.ts</code> and paste your keys into the <code>manualConfig</code> object.
-            </p>
-          </div>
-          
-          <div className="text-center mt-6">
-             <p className="text-xs text-gray-500 italic">If you have updated the code, please refresh the page.</p>
-          </div>
-        </div>
-        
-        {/* Fallback form */}
-        <div className="mt-8 w-full max-w-md opacity-75">
-          <p className="text-xs text-center text-gray-400 mb-2">Or enter temporarily below:</p>
-           <SetupScreen onConfigSaved={() => window.location.reload()} />
-        </div>
-      </div>
-    );
+    return <SetupScreen onConfigSaved={() => window.location.reload()} />;
   }
 
   useEffect(() => {
