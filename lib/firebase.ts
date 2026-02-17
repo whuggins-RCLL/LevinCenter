@@ -35,7 +35,7 @@ const getEnv = (key: string) => {
 // --- CONFIGURATION ---
 
 const getEnvConfig = () => {
-  return {
+  const envConfig = {
     apiKey: getEnv("VITE_FIREBASE_API_KEY"),
     authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN"),
     projectId: getEnv("VITE_FIREBASE_PROJECT_ID"),
@@ -44,6 +44,22 @@ const getEnvConfig = () => {
     appId: getEnv("VITE_FIREBASE_APP_ID"),
     measurementId: getEnv("VITE_FIREBASE_MEASUREMENT_ID")
   };
+
+  // FALLBACK: If env vars are missing (common in previews/sandboxes), use these defaults.
+  // These are public keys and safe to be client-side.
+  if (!envConfig.apiKey) {
+    return {
+      apiKey: "AIzaSyDObqG7ijP6WC-_4yxamFcf_Ps1xZBekhA",
+      authDomain: "levincenter-c08c0.firebaseapp.com",
+      projectId: "levincenter-c08c0",
+      storageBucket: "levincenter-c08c0.firebasestorage.app",
+      messagingSenderId: "135687192664",
+      appId: "1:135687192664:web:72dd9532f01bab50958a2d",
+      measurementId: "G-4BRENN34M8"
+    };
+  }
+
+  return envConfig;
 };
 
 // 2. Local Storage (Fallback for UI-based setup)

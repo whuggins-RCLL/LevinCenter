@@ -107,14 +107,10 @@ export default function App() {
     
     // Browse View
     return (
-      <div className="space-y-8">
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl mb-4">
-            Faculty Small Group Discussions
-          </h1>
-          <p className="text-lg text-gray-600">
-            Connect with SLS faculty in an informal setting. Browse upcoming topics and secure your spot.
-          </p>
+      <div className="space-y-6">
+        {/* Simplified Header */}
+        <div className="border-b border-gray-200 pb-4">
+           <h1 className="text-2xl font-bold text-gray-900">Upcoming Sessions</h1>
         </div>
 
         {dataLoading ? (
